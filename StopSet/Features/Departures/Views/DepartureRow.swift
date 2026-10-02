@@ -2,8 +2,9 @@ import SwiftUI
 
 struct DepartureRow: View {
     private let viewModel: DepartureRowViewModel
+
     private var departure: Departure { viewModel.departure }
-    init(departure: Departure) { viewModel = DepartureRowViewModel(departure: departure) }
+
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
@@ -35,5 +36,7 @@ struct DepartureRow: View {
                             "Scheduled \(departure.scheduledDate.formatted(date: .omitted, time: .shortened))")
         .accessibilityHint("Shows bus location")
     }
+
+    init(departure: Departure) { viewModel = DepartureRowViewModel(departure: departure) }
 }
 

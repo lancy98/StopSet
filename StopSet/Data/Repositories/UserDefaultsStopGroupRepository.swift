@@ -2,10 +2,11 @@ import Foundation
 import Combine
 import SwiftUI
 
-@MainActor
 final class UserDefaultsStopGroupRepository: ObservableObject, StopGroupRepository {
     @Published private(set) var groups: [StopGroup] = []
+
     var groupsPublisher: AnyPublisher<[StopGroup], Never> { $groups.eraseToAnyPublisher() }
+
     private let storageKey = "savedStopGroups"
     private let defaults: UserDefaults
 

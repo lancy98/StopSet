@@ -2,7 +2,6 @@ import MapKit
 import Combine
 import SwiftUI
 
-@MainActor
 final class AppleMapsAddressSearchRepository: NSObject, AddressSearchRepository, MKLocalSearchCompleterDelegate {
     var query = "" {
         didSet {
@@ -33,6 +32,7 @@ final class AppleMapsAddressSearchRepository: NSObject, AddressSearchRepository,
             if stopNumber != nil { findStops() }
         }
     }
+
     private(set) var completions: [AddressSearchResult] = [] { didSet { publishState() } }
     private(set) var stopResults: [BusStop] = [] { didSet { publishState() } }
     private(set) var stopError: String? { didSet { publishState() } }
@@ -40,6 +40,7 @@ final class AppleMapsAddressSearchRepository: NSObject, AddressSearchRepository,
     private(set) var error: String? { didSet { publishState() } }
     private(set) var resolving = false { didSet { publishState() } }
     private(set) var completing = false { didSet { publishState() } }
+
     private let completer = MKLocalSearchCompleter()
     private var search: MKLocalSearch?
     private var stopSearchTask: Task<Void, Never>?
@@ -53,12 +54,13 @@ final class AppleMapsAddressSearchRepository: NSObject, AddressSearchRepository,
 
     private let transitRepository: any TransitRepository
     private let stateSubject = CurrentValueSubject<AddressSearchState, Never>(AddressSearchState())
+
     var statePublisher: AnyPublisher<AddressSearchState, Never> { stateSubject.eraseToAnyPublisher() }
+
     var state: AddressSearchState {
         AddressSearchState(completions: completions, stopResults: stopResults, stopError: stopError,
                            findingStops: findingStops, error: error, resolving: resolving, completing: completing)
     }
-    private func publishState() { stateSubject.send(state) }
 
     init(transitRepository: any TransitRepository) {
         self.transitRepository = transitRepository
@@ -155,4 +157,6 @@ final class AppleMapsAddressSearchRepository: NSObject, AddressSearchRepository,
         completing = false
         findingStops = false
     }
+
+    private func publishState() { stateSubject.send(state) }
 }

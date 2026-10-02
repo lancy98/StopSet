@@ -4,23 +4,19 @@ struct GroupDetailsView: View {
     let group: StopGroup?
     let stops: [BusStop]
     let onSave: (StopGroup) -> Void
-    @State private var viewModel: GroupDetailsViewModel
 
-    init(group: StopGroup?, stops: [BusStop], onSave: @escaping (StopGroup) -> Void) {
-        self.group = group
-        self.stops = stops
-        self.onSave = onSave
-        _viewModel = State(initialValue: AppDependencies.shared.makeGroupDetailsViewModel(group: group, stops: stops))
-    }
+    @State private var viewModel: GroupDetailsViewModel
 
     private var name: String {
         get { viewModel.name }
         nonmutating set { viewModel.name = newValue }
     }
+
     private var symbol: String {
         get { viewModel.symbol }
         nonmutating set { viewModel.symbol = newValue }
     }
+
     private var color: String {
         get { viewModel.color }
         nonmutating set { viewModel.color = newValue }
@@ -89,5 +85,12 @@ struct GroupDetailsView: View {
                 .accessibilityIdentifier("save-group")
             }
         }
+    }
+
+    init(group: StopGroup?, stops: [BusStop], onSave: @escaping (StopGroup) -> Void) {
+        self.group = group
+        self.stops = stops
+        self.onSave = onSave
+        _viewModel = State(initialValue: AppDependencies.shared.makeGroupDetailsViewModel(group: group, stops: stops))
     }
 }

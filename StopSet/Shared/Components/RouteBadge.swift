@@ -3,8 +3,9 @@ import MapKit
 
 struct RouteBadge: View {
     private let viewModel: RouteBadgeViewModel
+
     private var route: String { viewModel.route }
-    init(route: String) { viewModel = RouteBadgeViewModel(route: route) }
+
     @ScaledMetric(relativeTo: .subheadline) private var width = 56
     @ScaledMetric(relativeTo: .subheadline) private var height = 32
 
@@ -18,5 +19,7 @@ struct RouteBadge: View {
             .background(viewModel.background, in: RoundedRectangle(cornerRadius: 6))
             .accessibilityLabel(viewModel.accessibilityLabel)
     }
+
+    init(route: String) { viewModel = RouteBadgeViewModel(route: route) }
 }
 

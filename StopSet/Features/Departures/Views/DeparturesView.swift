@@ -3,12 +3,9 @@ import MapKit
 
 struct DeparturesView: View {
     @State private var viewModel: DeparturesViewModel
+
     let groupID: UUID
 
-    init(groupID: UUID) {
-        self.groupID = groupID
-        _viewModel = State(initialValue: AppDependencies.shared.makeDeparturesViewModel(groupID: groupID))
-    }
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -17,6 +14,7 @@ struct DeparturesView: View {
     private var availableRoutes: [String] { viewModel.availableRoutes }
     private var routeFilterLabel: String { viewModel.routeFilterLabel }
     private var refreshInterval: Int { viewModel.refreshInterval }
+
     private var refreshContext: String {
         "\(group?.stops.map(\.id).joined() ?? "")-\(connectionRevision)-\(hasKey)-\(scenePhase == .active)-\(refreshInterval)"
     }
@@ -25,50 +23,62 @@ struct DeparturesView: View {
         get { viewModel.departures }
         nonmutating set { viewModel.departures = newValue }
     }
+
     private var loading: Bool {
         get { viewModel.loading }
         nonmutating set { viewModel.loading = newValue }
     }
+
     private var error: String? {
         get { viewModel.error }
         nonmutating set { viewModel.error = newValue }
     }
+
     private var lastUpdated: Date? {
         get { viewModel.lastUpdated }
         nonmutating set { viewModel.lastUpdated = newValue }
     }
+
     private var selectedDeparture: Departure? {
         get { viewModel.selectedDeparture }
         nonmutating set { viewModel.selectedDeparture = newValue }
     }
+
     private var stopFilter: String? {
         get { viewModel.stopFilter }
         nonmutating set { viewModel.stopFilter = newValue }
     }
+
     private var selectedRoutes: Set<String> {
         get { viewModel.selectedRoutes }
         nonmutating set { viewModel.selectedRoutes = newValue }
     }
+
     private var showingRouteFilter: Bool {
         get { viewModel.showingRouteFilter }
         nonmutating set { viewModel.showingRouteFilter = newValue }
     }
+
     private var showingSettings: Bool {
         get { viewModel.showingSettings }
         nonmutating set { viewModel.showingSettings = newValue }
     }
+
     private var showingEditor: Bool {
         get { viewModel.showingEditor }
         nonmutating set { viewModel.showingEditor = newValue }
     }
+
     private var showingStops: Bool {
         get { viewModel.showingStops }
         nonmutating set { viewModel.showingStops = newValue }
     }
+
     private var hasKey: Bool {
         get { viewModel.hasKey }
         nonmutating set { viewModel.hasKey = newValue }
     }
+
     private var connectionRevision: Int {
         get { viewModel.connectionRevision }
         nonmutating set { viewModel.connectionRevision = newValue }
@@ -129,42 +139,6 @@ struct DeparturesView: View {
                 await refresh()
             }
         }
-    }
-
-    private func groupSummary(_ group: StopGroup) -> some View {
-        let allStopsLabel = group.stops.count == 1 ? "Stop \(group.stops[0].code)" : "All \(group.stops.count) Stops"
-        let layout = typeSize.isAccessibilitySize ?
-            AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) :
-            AnyLayout(HStackLayout(spacing: 10))
-        return layout {
-            GroupSymbol(symbol: group.displaySymbol, color: group.displayColor, size: 34)
-            Menu {
-                Picker("Stops", selection: $viewModel.stopFilter) {
-                    Text(allStopsLabel).tag(String?.none)
-                    ForEach(group.stops) { stop in
-                        Text("\(stop.code) · \(stop.name)").tag(Optional(stop.id))
-                    }
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Text(stopFilter.flatMap { id in group.stops.first { $0.id == id }.map { "Stop \($0.code)" } }
-                         ?? allStopsLabel)
-                    Image(systemName: "chevron.down").font(.caption.weight(.semibold))
-                }
-                .font(.subheadline.weight(.medium))
-            }
-            .accessibilityIdentifier("stop-filter")
-            if !typeSize.isAccessibilitySize { Spacer(minLength: 4) }
-            Button { showingRouteFilter = true } label: {
-                Label(routeFilterLabel, systemImage: "line.3.horizontal.decrease")
-                    .font(.subheadline.weight(.medium))
-            }
-            .accessibilityLabel("Bus numbers")
-            .accessibilityValue(routeFilterLabel)
-            .accessibilityIdentifier("route-filter")
-            if loading && !departures.isEmpty { ProgressView().controlSize(.small) }
-        }
-        .padding(.horizontal, 20).padding(.top, 4).padding(.bottom, 8)
     }
 
     private var routeFilterSheet: some View {
@@ -285,6 +259,47 @@ struct DeparturesView: View {
         .listStyle(.plain)
         .contentMargins(.top, 0, for: .scrollContent)
         .refreshable { await refresh() }
+    }
+
+    init(groupID: UUID) {
+        self.groupID = groupID
+        _viewModel = State(initialValue: AppDependencies.shared.makeDeparturesViewModel(groupID: groupID))
+    }
+
+    private func groupSummary(_ group: StopGroup) -> some View {
+        let allStopsLabel = group.stops.count == 1 ? "Stop \(group.stops[0].code)" : "All \(group.stops.count) Stops"
+        let layout = typeSize.isAccessibilitySize ?
+            AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) :
+            AnyLayout(HStackLayout(spacing: 10))
+        return layout {
+            GroupSymbol(symbol: group.displaySymbol, color: group.displayColor, size: 34)
+            Menu {
+                Picker("Stops", selection: $viewModel.stopFilter) {
+                    Text(allStopsLabel).tag(String?.none)
+                    ForEach(group.stops) { stop in
+                        Text("\(stop.code) · \(stop.name)").tag(Optional(stop.id))
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Text(stopFilter.flatMap { id in group.stops.first { $0.id == id }.map { "Stop \($0.code)" } }
+                         ?? allStopsLabel)
+                    Image(systemName: "chevron.down").font(.caption.weight(.semibold))
+                }
+                .font(.subheadline.weight(.medium))
+            }
+            .accessibilityIdentifier("stop-filter")
+            if !typeSize.isAccessibilitySize { Spacer(minLength: 4) }
+            Button { showingRouteFilter = true } label: {
+                Label(routeFilterLabel, systemImage: "line.3.horizontal.decrease")
+                    .font(.subheadline.weight(.medium))
+            }
+            .accessibilityLabel("Bus numbers")
+            .accessibilityValue(routeFilterLabel)
+            .accessibilityIdentifier("route-filter")
+            if loading && !departures.isEmpty { ProgressView().controlSize(.small) }
+        }
+        .padding(.horizontal, 20).padding(.top, 4).padding(.bottom, 8)
     }
 
     private func refresh() async { await viewModel.refresh() }

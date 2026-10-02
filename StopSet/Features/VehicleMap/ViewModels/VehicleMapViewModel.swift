@@ -2,7 +2,6 @@ import SwiftUI
 import MapKit
 import Observation
 
-@MainActor
 @Observable
 final class VehicleMapViewModel {
     let departure: Departure
@@ -10,14 +9,17 @@ final class VehicleMapViewModel {
     var loading = false
     var message: String?
     var camera: MapCameraPosition = .automatic
+
     private let loadUseCase: LoadVehicleLocationUseCase
     private let settingsUseCase: ManageSettingsUseCase
+
     init(departure: Departure, loadUseCase: LoadVehicleLocationUseCase,
          settingsUseCase: ManageSettingsUseCase) {
         self.departure = departure
         self.loadUseCase = loadUseCase
         self.settingsUseCase = settingsUseCase
     }
+
     func refresh() async {
         guard !loading, !Task.isCancelled else { return }
         loading = true

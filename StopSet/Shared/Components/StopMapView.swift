@@ -3,10 +3,8 @@ import MapKit
 
 struct StopMapView: View {
     private let viewModel: StopMapViewModel
+
     private var stops: [BusStop] { viewModel.stops }
-    init(stops: [BusStop], interactive: Bool = true) {
-        viewModel = StopMapViewModel(stops: stops, interactive: interactive)
-    }
 
     var body: some View {
         Map(initialPosition: .region(viewModel.region),
@@ -17,5 +15,9 @@ struct StopMapView: View {
         }
         .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
         .accessibilityLabel(viewModel.accessibilityLabel)
+    }
+
+    init(stops: [BusStop], interactive: Bool = true) {
+        viewModel = StopMapViewModel(stops: stops, interactive: interactive)
     }
 }

@@ -3,7 +3,6 @@ import MapKit
 
 struct StopLabel: View {
     private let viewModel: StopLabelViewModel
-    init(stop: BusStop) { viewModel = StopLabelViewModel(stop: stop) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -11,5 +10,7 @@ struct StopLabel: View {
             Text(viewModel.codeLabel).font(.subheadline).foregroundStyle(.secondary)
         }
     }
+
+    init(stop: BusStop) { viewModel = StopLabelViewModel(stop: stop) }
 }
 

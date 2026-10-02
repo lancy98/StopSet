@@ -2,8 +2,9 @@ import SwiftUI
 
 struct GroupStopsView: View {
     private let viewModel: GroupStopsViewModel
+
     private var group: StopGroup { viewModel.group }
-    init(group: StopGroup) { viewModel = GroupStopsViewModel(group: group) }
+
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -32,4 +33,6 @@ struct GroupStopsView: View {
                 }
         }
     }
+
+    init(group: StopGroup) { viewModel = GroupStopsViewModel(group: group) }
 }

@@ -2,8 +2,8 @@ import SwiftUI
 
 struct DepartureTime: View {
     private let viewModel: DepartureTimeViewModel
+
     private var departure: Departure { viewModel.departure }
-    init(departure: Departure) { viewModel = DepartureTimeViewModel(departure: departure) }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 5) {
@@ -27,5 +27,7 @@ struct DepartureTime: View {
         }
         .fixedSize()
     }
+
+    init(departure: Departure) { viewModel = DepartureTimeViewModel(departure: departure) }
 }
 

@@ -5,6 +5,9 @@ enum TransitStyle {
     static let groupColors = ["blue", "teal", "green", "orange", "pink", "purple"]
     static let groupSymbols = ["mappin.and.ellipse", "building.2.fill", "house.fill", "star.fill", "briefcase.fill", "heart.fill"]
 
+    static let auckland = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: -36.8485, longitude: 174.7633),
+                                             span: MKCoordinateSpan(latitudeDelta: 0.014, longitudeDelta: 0.014))
+
     static func color(_ name: String) -> Color {
         switch name {
         case "teal": .teal
@@ -40,8 +43,5 @@ enum TransitStyle {
                                   span: MKCoordinateSpan(latitudeDelta: max((maxLat - minLat) * 2, 0.009),
                                                          longitudeDelta: max((maxLon - minLon) * 2, 0.009)))
     }
-
-    static let auckland = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: -36.8485, longitude: 174.7633),
-                                             span: MKCoordinateSpan(latitudeDelta: 0.014, longitudeDelta: 0.014))
 }
 

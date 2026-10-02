@@ -2,7 +2,6 @@ import SwiftUI
 import MapKit
 import Observation
 
-@MainActor
 @Observable
 final class StopPickerViewModel {
     var search: AddressSearchViewModel
@@ -25,16 +24,9 @@ final class StopPickerViewModel {
     var loadTask: Task<Void, Never>?
     var routeTask: Task<Void, Never>?
     var searchTask: Task<Void, Never>?
+
     private let useCase: DiscoverStopsUseCase
-    init(group: StopGroup?, useCase: DiscoverStopsUseCase,
-         addressUseCase: SearchAddressesUseCase) {
-        self.useCase = useCase
-        search = AddressSearchViewModel(useCase: addressUseCase)
-        let region = TransitStyle.region(for: group?.stops ?? [])
-        selected = group?.stops ?? []
-        camera = .region(region)
-        visibleCenter = region.center
-    }
+
     var mapStops: [BusStop] {
         stops + selected.filter { chosen in !stops.contains { $0.id == chosen.id } }
     }
@@ -45,12 +37,23 @@ final class StopPickerViewModel {
             .distance(from: CLLocation(latitude: loadedCenter.latitude, longitude: loadedCenter.longitude)) > 250
     }
 
+    init(group: StopGroup?, useCase: DiscoverStopsUseCase,
+         addressUseCase: SearchAddressesUseCase) {
+        self.useCase = useCase
+        search = AddressSearchViewModel(useCase: addressUseCase)
+        let region = TransitStyle.region(for: group?.stops ?? [])
+        selected = group?.stops ?? []
+        camera = .region(region)
+        visibleCenter = region.center
+    }
+
     func cancel() {
         loadTask?.cancel()
         routeTask?.cancel()
         searchTask?.cancel()
         search.cancel()
     }
+
     func toggleSelection(_ stop: BusStop) {
         if isSelected(stop) { selected.removeAll { $0.id == stop.id } }
         else { selected.append(stop) }

@@ -1,23 +1,6 @@
 import XCTest
 
 final class StopSetUITests: XCTestCase {
-    @MainActor
-    private func launch(arguments: [String] = []) -> XCUIApplication {
-        continueAfterFailure = false
-        let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing"] + arguments
-        app.launch()
-        XCTAssertTrue(app.buttons["group-Office"].waitForExistence(timeout: 10))
-        return app
-    }
-
-    @MainActor
-    private func capture(_ name: String) {
-        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
-    }
 
     @MainActor
     func testDeparturesAndMaps() {
@@ -348,5 +331,23 @@ final class StopSetUITests: XCTestCase {
         app.buttons["Cancel"].tap()
         XCTAssertTrue(app.buttons["group-Office"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'group-'")).count, 2)
+    }
+
+    @MainActor
+    private func launch(arguments: [String] = []) -> XCUIApplication {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing"] + arguments
+        app.launch()
+        XCTAssertTrue(app.buttons["group-Office"].waitForExistence(timeout: 10))
+        return app
+    }
+
+    @MainActor
+    private func capture(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 }

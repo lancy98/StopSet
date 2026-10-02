@@ -11,12 +11,14 @@ struct AddressSearchState {
     var completing = false
 }
 
-@MainActor
 protocol AddressSearchRepository: AnyObject {
     var query: String { get set }
     var state: AddressSearchState { get }
     var statePublisher: AnyPublisher<AddressSearchState, Never> { get }
+
     func findStops(debounce: Bool)
+
     func resolve(_ result: AddressSearchResult?) async -> MKMapItem?
+
     func cancel()
 }

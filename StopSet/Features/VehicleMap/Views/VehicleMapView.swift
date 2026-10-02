@@ -3,26 +3,27 @@ import MapKit
 
 struct VehicleMapView: View {
     @State private var viewModel: VehicleMapViewModel
+
     let departure: Departure
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
-    init(departure: Departure) {
-        self.departure = departure
-        _viewModel = State(initialValue: AppDependencies.shared.makeVehicleMapViewModel(departure: departure))
-    }
 
     private var location: VehicleLocation? {
         get { viewModel.location }
         nonmutating set { viewModel.location = newValue }
     }
+
     private var loading: Bool {
         get { viewModel.loading }
         nonmutating set { viewModel.loading = newValue }
     }
+
     private var message: String? {
         get { viewModel.message }
         nonmutating set { viewModel.message = newValue }
     }
+
     private var camera: MapCameraPosition {
         get { viewModel.camera }
         nonmutating set { viewModel.camera = newValue }
@@ -111,6 +112,12 @@ struct VehicleMapView: View {
         }
     }
 
+    init(departure: Departure) {
+        self.departure = departure
+        _viewModel = State(initialValue: AppDependencies.shared.makeVehicleMapViewModel(departure: departure))
+    }
+
     private func refresh() async { await viewModel.refresh() }
+
     private func recenter() { viewModel.recenter() }
 }

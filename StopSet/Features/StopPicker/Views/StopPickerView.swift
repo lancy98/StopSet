@@ -3,18 +3,15 @@ import MapKit
 
 struct StopPickerView: View {
     @State private var viewModel: StopPickerViewModel
+
     let group: StopGroup?
     let onSave: (StopGroup) -> Void
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
-    private var search: AddressSearchViewModel { viewModel.search }
 
-    init(group: StopGroup? = nil, onSave: @escaping (StopGroup) -> Void) {
-        self.group = group
-        self.onSave = onSave
-        _viewModel = State(initialValue: AppDependencies.shared.makeStopPickerViewModel(group: group))
-    }
+    private var search: AddressSearchViewModel { viewModel.search }
 
     private var mapStops: [BusStop] { viewModel.mapStops }
 
@@ -26,58 +23,72 @@ struct StopPickerView: View {
         get { viewModel.camera }
         nonmutating set { viewModel.camera = newValue }
     }
+
     private var visibleCenter: CLLocationCoordinate2D {
         get { viewModel.visibleCenter }
         nonmutating set { viewModel.visibleCenter = newValue }
     }
+
     private var stops: [BusStop] {
         get { viewModel.stops }
         nonmutating set { viewModel.stops = newValue }
     }
+
     private var selected: [BusStop] {
         get { viewModel.selected }
         nonmutating set { viewModel.selected = newValue }
     }
+
     private var focusedStop: BusStop? {
         get { viewModel.focusedStop }
         nonmutating set { viewModel.focusedStop = newValue }
     }
+
     private var routes: [String] {
         get { viewModel.routes }
         nonmutating set { viewModel.routes = newValue }
     }
+
     private var loadingRoutes: Bool {
         get { viewModel.loadingRoutes }
         nonmutating set { viewModel.loadingRoutes = newValue }
     }
+
     private var loading: Bool {
         get { viewModel.loading }
         nonmutating set { viewModel.loading = newValue }
     }
+
     private var message: String? {
         get { viewModel.message }
         nonmutating set { viewModel.message = newValue }
     }
+
     private var locationName: String {
         get { viewModel.locationName }
         nonmutating set { viewModel.locationName = newValue }
     }
+
     private var searchedLocation: CLLocationCoordinate2D? {
         get { viewModel.searchedLocation }
         nonmutating set { viewModel.searchedLocation = newValue }
     }
+
     private var sheetPresented: Bool {
         get { viewModel.sheetPresented }
         nonmutating set { viewModel.sheetPresented = newValue }
     }
+
     private var detent: PresentationDetent {
         get { viewModel.detent }
         nonmutating set { viewModel.detent = newValue }
     }
+
     private var showingDetails: Bool {
         get { viewModel.showingDetails }
         nonmutating set { viewModel.showingDetails = newValue }
     }
+
     private var searchPresented: Bool {
         get { viewModel.searchPresented }
         nonmutating set { viewModel.searchPresented = newValue }
@@ -301,6 +312,12 @@ struct StopPickerView: View {
         }
     }
 
+    init(group: StopGroup? = nil, onSave: @escaping (StopGroup) -> Void) {
+        self.group = group
+        self.onSave = onSave
+        _viewModel = State(initialValue: AppDependencies.shared.makeStopPickerViewModel(group: group))
+    }
+
     private func stopRow(_ stop: BusStop) -> some View {
         HStack(spacing: 12) {
             Button { focus(stop) } label: {
@@ -329,9 +346,13 @@ struct StopPickerView: View {
     }
 
     private func isSelected(_ stop: BusStop) -> Bool { viewModel.isSelected(stop) }
+
     private func focus(_ stop: BusStop) { viewModel.focus(stop) }
+
     private func findAddress(_ completion: AddressSearchResult? = nil) { viewModel.findAddress(completion) }
+
     private func showSearchStop(_ stop: BusStop) { viewModel.showSearchStop(stop) }
+
     private func loadStops(at coordinate: CLLocationCoordinate2D) { viewModel.loadStops(at: coordinate) }
 
     private func close() {

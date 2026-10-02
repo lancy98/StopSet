@@ -47,6 +47,56 @@ struct TransitService {
         }
     }
 
+    func nearbyRoutes(at coordinate: CLLocationCoordinate2D) async throws -> [String] {
+        let data = try await arcGISQuery(layer: 2, coordinate: coordinate, distance: 25,
+                                         fields: "ROUTENUMBER,MODE", distinct: true)
+        let features = (try JSONSerialization.jsonObject(with: data) as? [String: Any])?["features"] as? [[String: Any]] ?? []
+        return Array(Set(features.compactMap { feature -> String? in
+            guard let attributes = feature["attributes"] as? [String: Any],
+                  (attributes["MODE"] as? String ?? "").lowercased().contains("bus"),
+                  let number = attributes["ROUTENUMBER"] as? String else { return nil }
+            return number
+        })).sorted()
+    }
+
+    func departures(for stops: [BusStop], key: String) async throws -> [Departure] {
+        async let schedulesRequest = scheduledTrips(for: stops, key: key)
+        async let liveRequest = liveUpdates(for: stops, key: key)
+        async let routeNamesRequest = routeNames(key: key)
+        let schedules = try await schedulesRequest
+        let live = (try? await liveRequest) ?? LiveUpdates()
+        let names = (try? await routeNamesRequest) ?? [:]
+        let now = Date()
+        return schedules.compactMap { trip -> Departure? in
+            let prediction = live.exact[trip.id] ?? live.estimate(for: trip)
+            let date = prediction?.date ?? trip.scheduledDate
+            guard date >= now.addingTimeInterval(-60), date <= now.addingTimeInterval(7200) else { return nil }
+            return Departure(id: trip.id, route: names[trip.routeID] ?? trip.routeID,
+                             destination: trip.destination, stop: trip.stop,
+                             scheduledDate: trip.scheduledDate, predictedDate: prediction?.date,
+                             tripID: trip.tripID, vehicleID: prediction?.vehicleID)
+        }.sorted { $0.date < $1.date }
+    }
+
+    func vehicleLocation(tripID: String, vehicleID: String?, key: String) async throws -> VehicleLocation? {
+        let data = try await authenticatedData(path: "/realtime/legacy/vehiclelocations", key: key)
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw TransitError.invalidResponse }
+        let feed = root["response"] as? [String: Any] ?? root
+        guard let entities = feed["entity"] as? [[String: Any]] else { throw TransitError.invalidResponse }
+        for entity in entities {
+            guard let vehicle = entity["vehicle"] as? [String: Any],
+                  let trip = vehicle["trip"] as? [String: Any],
+                  trip["trip_id"] as? String == tripID,
+                  vehicleID == nil || (vehicle["vehicle"] as? [String: Any])?["id"] as? String == vehicleID,
+                  let position = vehicle["position"] as? [String: Any],
+                  let lat = Self.number(position["latitude"]),
+                  let lon = Self.number(position["longitude"]) else { continue }
+            let timestamp = Self.number(vehicle["timestamp"]).map(Date.init(timeIntervalSince1970:))
+            return VehicleLocation(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon), timestamp: timestamp)
+        }
+        return nil
+    }
+
     private func decodeStops(_ data: Data) throws -> [BusStop] {
         guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let features = object["features"] as? [[String: Any]] else { throw TransitError.invalidResponse }
@@ -61,18 +111,6 @@ struct TransitService {
             let code = (attributes["STOPCODE"] as? NSNumber)?.stringValue ?? id
             return BusStop(id: id, code: code, name: name, latitude: lat, longitude: lon)
         }
-    }
-
-    func nearbyRoutes(at coordinate: CLLocationCoordinate2D) async throws -> [String] {
-        let data = try await arcGISQuery(layer: 2, coordinate: coordinate, distance: 25,
-                                         fields: "ROUTENUMBER,MODE", distinct: true)
-        let features = (try JSONSerialization.jsonObject(with: data) as? [String: Any])?["features"] as? [[String: Any]] ?? []
-        return Array(Set(features.compactMap { feature -> String? in
-            guard let attributes = feature["attributes"] as? [String: Any],
-                  (attributes["MODE"] as? String ?? "").lowercased().contains("bus"),
-                  let number = attributes["ROUTENUMBER"] as? String else { return nil }
-            return number
-        })).sorted()
     }
 
     private func arcGISQuery(layer: Int, coordinate: CLLocationCoordinate2D? = nil, distance: Int? = nil,
@@ -105,25 +143,6 @@ struct TransitService {
             throw TransitError.invalidResponse
         }
         return data
-    }
-
-    func departures(for stops: [BusStop], key: String) async throws -> [Departure] {
-        async let schedulesRequest = scheduledTrips(for: stops, key: key)
-        async let liveRequest = liveUpdates(for: stops, key: key)
-        async let routeNamesRequest = routeNames(key: key)
-        let schedules = try await schedulesRequest
-        let live = (try? await liveRequest) ?? LiveUpdates()
-        let names = (try? await routeNamesRequest) ?? [:]
-        let now = Date()
-        return schedules.compactMap { trip -> Departure? in
-            let prediction = live.exact[trip.id] ?? live.estimate(for: trip)
-            let date = prediction?.date ?? trip.scheduledDate
-            guard date >= now.addingTimeInterval(-60), date <= now.addingTimeInterval(7200) else { return nil }
-            return Departure(id: trip.id, route: names[trip.routeID] ?? trip.routeID,
-                             destination: trip.destination, stop: trip.stop,
-                             scheduledDate: trip.scheduledDate, predictedDate: prediction?.date,
-                             tripID: trip.tripID, vehicleID: prediction?.vehicleID)
-        }.sorted { $0.date < $1.date }
     }
 
     private func scheduledTrips(for stops: [BusStop], key: String) async throws -> [ScheduledTrip] {
@@ -252,25 +271,6 @@ struct TransitService {
         return names
     }
 
-    func vehicleLocation(tripID: String, vehicleID: String?, key: String) async throws -> VehicleLocation? {
-        let data = try await authenticatedData(path: "/realtime/legacy/vehiclelocations", key: key)
-        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw TransitError.invalidResponse }
-        let feed = root["response"] as? [String: Any] ?? root
-        guard let entities = feed["entity"] as? [[String: Any]] else { throw TransitError.invalidResponse }
-        for entity in entities {
-            guard let vehicle = entity["vehicle"] as? [String: Any],
-                  let trip = vehicle["trip"] as? [String: Any],
-                  trip["trip_id"] as? String == tripID,
-                  vehicleID == nil || (vehicle["vehicle"] as? [String: Any])?["id"] as? String == vehicleID,
-                  let position = vehicle["position"] as? [String: Any],
-                  let lat = Self.number(position["latitude"]),
-                  let lon = Self.number(position["longitude"]) else { continue }
-            let timestamp = Self.number(vehicle["timestamp"]).map(Date.init(timeIntervalSince1970:))
-            return VehicleLocation(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon), timestamp: timestamp)
-        }
-        return nil
-    }
-
     private func authenticatedData(path: String, key: String, timeout: TimeInterval = 25) async throws -> Data {
         try await authenticatedData(url: URL(string: "https://api.at.govt.nz\(path)")!, key: key, timeout: timeout)
     }
@@ -296,6 +296,7 @@ struct TransitService {
 
 private actor RouteNameCache {
     static let shared = RouteNameCache()
+
     private var names: [String: String]?
     private var timestamp: Date?
 
@@ -349,6 +350,7 @@ private struct LiveUpdates {
 
 private actor StopTripsCache {
     static let shared = StopTripsCache()
+
     private var values: [String: [ScheduledTrip]] = [:]
 
     func get(_ key: String) -> [ScheduledTrip]? { values[key] }

@@ -2,21 +2,26 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+
     @State private var viewModel = AppDependencies.shared.makeSettingsViewModel()
+
     private var departureRefreshInterval: Int { viewModel.departureRefreshInterval }
 
     private var key: String {
         get { viewModel.key }
         nonmutating set { viewModel.key = newValue }
     }
+
     private var hasKey: Bool {
         get { viewModel.hasKey }
         nonmutating set { viewModel.hasKey = newValue }
     }
+
     private var status: String? {
         get { viewModel.status }
         nonmutating set { viewModel.status = newValue }
     }
+
     private var confirmingRemoval: Bool {
         get { viewModel.confirmingRemoval }
         nonmutating set { viewModel.confirmingRemoval = newValue }

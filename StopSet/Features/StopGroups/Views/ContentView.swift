@@ -7,10 +7,12 @@ struct ContentView: View {
         get { viewModel.showingEditor }
         nonmutating set { viewModel.showingEditor = newValue }
     }
+
     private var editingGroup: StopGroup? {
         get { viewModel.editingGroup }
         nonmutating set { viewModel.editingGroup = newValue }
     }
+
     private var showingSettings: Bool {
         get { viewModel.showingSettings }
         nonmutating set { viewModel.showingSettings = newValue }
@@ -86,5 +88,6 @@ struct ContentView: View {
     }
 
     private func newGroup() { viewModel.newGroup() }
+
     private func edit(_ group: StopGroup) { viewModel.edit(group) }
 }
