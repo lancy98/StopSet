@@ -1,6 +1,18 @@
 # <img src="./Design/AppIcon-Light.png" alt="StopSet app icon" width="36" align="absmiddle"> StopSet
 
-StopSet is a SwiftUI app for comparing Auckland bus departures across a user-defined group of stops. Save the stops you use together, see their departures on one board, and follow a bus's last reported position on the map. Groups and preferences stay on your device, and your Auckland Transport API key is stored in Keychain.
+StopSet is a SwiftUI app for comparing Auckland bus departures across custom groups of stops. Save your favourite stops together, compare live and scheduled departures on one board, and follow a bus's last reported position on the map. It uses Apple Maps for stop discovery, Auckland Transport for departure data, and local storage for groups and preferences.
+
+## Screenshots
+
+| Saved Groups | Departures | Bus Location |
+| --- | --- | --- |
+| <img src="Screenshots/saved-groups.png" alt="StopSet saved stop groups" width="260"> | <img src="Screenshots/departures.png" alt="Combined live and scheduled bus departures" width="260"> | <img src="Screenshots/bus-location.png" alt="Bus location and trip details on the map" width="260"> |
+
+| Choose Stops | Group Customization | Stop And Address Search |
+| --- | --- | --- |
+| <img src="Screenshots/choose-stops.png" alt="Map and nearby stop picker" width="260"> | <img src="Screenshots/edit-group.png" alt="Group name, colour, and symbol editor" width="260"> | <img src="Screenshots/stop-search.png" alt="Combined bus stop and address search results" width="260"> |
+
+Screenshots use the app's deterministic UI-test data.
 
 ## Features
 
@@ -64,7 +76,7 @@ The app does not use third-party frameworks.
 ```text
 StopSet/
 ├── StopSet/
-│   ├── App/                       App entry point and dependency composition
+│   ├── App/
 │   ├── Features/
 │   │   ├── StopGroups/
 │   │   ├── StopPicker/
@@ -73,26 +85,27 @@ StopSet/
 │   │   ├── VehicleMap/
 │   │   └── Settings/
 │   ├── Domain/
-│   │   ├── Models/                Shared entities and settings values
-│   │   └── Repositories/          Repository protocols
+│   │   ├── Models/
+│   │   └── Repositories/
 │   ├── Data/
-│   │   ├── Repositories/          Transport, search, and storage implementations
-│   │   ├── Services/              HTTP requests, decoding, and transit caches
-│   │   ├── Storage/               Keychain access
-│   │   └── Preview/               Deterministic UI-test data
+│   │   ├── Repositories/
+│   │   ├── Services/
+│   │   ├── Storage/
+│   │   └── Preview/
 │   ├── Shared/
-│   │   ├── Components/            Reusable views and visual styling
-│   │   └── ViewModels/            Component presentation models
+│   │   ├── Components/
+│   │   └── ViewModels/
 │   ├── Assets.xcassets/
 │   └── StopSetIcon.icon/
 ├── StopSet.xcodeproj/
 ├── StopSetUITests/
-└── Design/                        App icon previews and documentation
+├── Screenshots/
+└── Design/
 ```
 
 ## Architecture
 
-StopSet follows a feature-based MVVM structure with use cases and repository interfaces:
+StopSet follows a feature-based Clean Architecture structure with MVVM, use cases, and repository interfaces:
 
 ```text
 View → ViewModel → UseCase → Repository → API / local storage
@@ -166,7 +179,9 @@ The UI tests cover:
 - Combined stop and address search, result ordering, text and mixed input, missing numbers, and stops outside the current map area.
 - Departure filtering and both maps.
 - Accessibility-sized text.
-- Screenshot attachments in the test report.
+- Refresh interval settings.
+
+Tests save screenshot attachments in the test report.
 
 UI tests launch with `--ui-testing` to use deterministic sample groups and departures. This Debug-only mode uses a separate preferences suite and does not change saved user groups. Normal launches use the real transport services.
 
