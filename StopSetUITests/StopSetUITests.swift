@@ -117,7 +117,7 @@ final class StopSetUITests: XCTestCase {
         app.buttons["Settings"].tap()
         let interval = app.buttons["departure-refresh-interval"]
         XCTAssertTrue(interval.waitForExistence(timeout: 5))
-        XCTAssertTrue(interval.label.contains("Every 10 seconds"))
+        XCTAssertTrue(interval.label.contains("Every 30 seconds"))
         interval.tap()
         app.buttons["Every 60 seconds"].tap()
         XCTAssertTrue(interval.label.contains("Every 60 seconds"))

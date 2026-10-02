@@ -2,46 +2,76 @@ import SwiftUI
 import MapKit
 
 struct DeparturesView: View {
+    @State private var viewModel: DeparturesViewModel
     let groupID: UUID
-    @EnvironmentObject private var store: StopGroupStore
+
+    init(groupID: UUID) {
+        self.groupID = groupID
+        _viewModel = State(initialValue: AppDependencies.shared.makeDeparturesViewModel(groupID: groupID))
+    }
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var typeSize
-    @State private var departures: [Departure] = []
-    @State private var loading = false
-    @State private var error: String?
-    @State private var lastUpdated: Date?
-    @State private var selectedDeparture: Departure?
-    @State private var stopFilter: String?
-    @State private var selectedRoutes: Set<String> = []
-    @State private var showingRouteFilter = false
-    @State private var showingSettings = false
-    @State private var showingEditor = false
-    @State private var showingStops = false
-    @State private var hasKey = APIKeyStore.key != nil
-    @State private var connectionRevision = 0
-    @State private var requestID = UUID()
-    @AppStorage(RefreshSettings.departureIntervalKey) private var refreshInterval = RefreshSettings.defaultDepartureInterval
-    private let service = TransitService()
 
-    private var group: StopGroup? { store.groups.first { $0.id == groupID } }
-    private var visibleDepartures: [Departure] {
-        departures.filter {
-            (stopFilter == nil || $0.stop.id == stopFilter) &&
-            (selectedRoutes.isEmpty || selectedRoutes.contains($0.route))
-        }
-    }
-    private var availableRoutes: [String] {
-        Set(departures.map(\.route)).union(selectedRoutes).sorted {
-            $0.localizedStandardCompare($1) == .orderedAscending
-        }
-    }
-    private var routeFilterLabel: String {
-        if selectedRoutes.isEmpty { return "All buses" }
-        if selectedRoutes.count == 1, let route = selectedRoutes.first { return "Bus \(route)" }
-        return "\(selectedRoutes.count) bus numbers"
-    }
+    private var group: StopGroup? { viewModel.group }
+    private var visibleDepartures: [Departure] { viewModel.visibleDepartures }
+    private var availableRoutes: [String] { viewModel.availableRoutes }
+    private var routeFilterLabel: String { viewModel.routeFilterLabel }
+    private var refreshInterval: Int { viewModel.refreshInterval }
     private var refreshContext: String {
         "\(group?.stops.map(\.id).joined() ?? "")-\(connectionRevision)-\(hasKey)-\(scenePhase == .active)-\(refreshInterval)"
+    }
+
+    private var departures: [Departure] {
+        get { viewModel.departures }
+        nonmutating set { viewModel.departures = newValue }
+    }
+    private var loading: Bool {
+        get { viewModel.loading }
+        nonmutating set { viewModel.loading = newValue }
+    }
+    private var error: String? {
+        get { viewModel.error }
+        nonmutating set { viewModel.error = newValue }
+    }
+    private var lastUpdated: Date? {
+        get { viewModel.lastUpdated }
+        nonmutating set { viewModel.lastUpdated = newValue }
+    }
+    private var selectedDeparture: Departure? {
+        get { viewModel.selectedDeparture }
+        nonmutating set { viewModel.selectedDeparture = newValue }
+    }
+    private var stopFilter: String? {
+        get { viewModel.stopFilter }
+        nonmutating set { viewModel.stopFilter = newValue }
+    }
+    private var selectedRoutes: Set<String> {
+        get { viewModel.selectedRoutes }
+        nonmutating set { viewModel.selectedRoutes = newValue }
+    }
+    private var showingRouteFilter: Bool {
+        get { viewModel.showingRouteFilter }
+        nonmutating set { viewModel.showingRouteFilter = newValue }
+    }
+    private var showingSettings: Bool {
+        get { viewModel.showingSettings }
+        nonmutating set { viewModel.showingSettings = newValue }
+    }
+    private var showingEditor: Bool {
+        get { viewModel.showingEditor }
+        nonmutating set { viewModel.showingEditor = newValue }
+    }
+    private var showingStops: Bool {
+        get { viewModel.showingStops }
+        nonmutating set { viewModel.showingStops = newValue }
+    }
+    private var hasKey: Bool {
+        get { viewModel.hasKey }
+        nonmutating set { viewModel.hasKey = newValue }
+    }
+    private var connectionRevision: Int {
+        get { viewModel.connectionRevision }
+        nonmutating set { viewModel.connectionRevision = newValue }
     }
 
     var body: some View {
@@ -49,7 +79,7 @@ struct DeparturesView: View {
             if let group {
                 VStack(spacing: 0) {
                     groupSummary(group)
-                    if !hasKey && !AppPreview.isEnabled {
+                    if !hasKey {
                         ContentUnavailableView {
                             Label("Connect to AT", systemImage: "dot.radiowaves.left.and.right")
                         } description: {
@@ -75,21 +105,20 @@ struct DeparturesView: View {
                         .accessibilityIdentifier("group-menu")
                     }
                 }
-                .sheet(isPresented: $showingStops) { GroupStopsView(group: group) }
-                .fullScreenCover(isPresented: $showingEditor) {
-                    StopPickerView(group: group, onSave: store.save)
+                .sheet(isPresented: $viewModel.showingStops) { GroupStopsView(group: group) }
+                .fullScreenCover(isPresented: $viewModel.showingEditor) {
+                    StopPickerView(group: group, onSave: { _ in })
                 }
             } else {
                 ContentUnavailableView("Group Removed", systemImage: "mappin.slash")
             }
         }
-        .sheet(item: $selectedDeparture) { VehicleMapView(departure: $0) }
-        .sheet(isPresented: $showingRouteFilter) {
+        .sheet(item: $viewModel.selectedDeparture) { VehicleMapView(departure: $0) }
+        .sheet(isPresented: $viewModel.showingRouteFilter) {
             routeFilterSheet
         }
-        .sheet(isPresented: $showingSettings, onDismiss: {
-            hasKey = APIKeyStore.key != nil
-            connectionRevision += 1
+        .sheet(isPresented: $viewModel.showingSettings, onDismiss: {
+            viewModel.reloadSettings()
         }) { SettingsView() }
         .task(id: refreshContext) {
             guard scenePhase == .active else { return }
@@ -110,7 +139,7 @@ struct DeparturesView: View {
         return layout {
             GroupSymbol(symbol: group.displaySymbol, color: group.displayColor, size: 34)
             Menu {
-                Picker("Stops", selection: $stopFilter) {
+                Picker("Stops", selection: $viewModel.stopFilter) {
                     Text(allStopsLabel).tag(String?.none)
                     ForEach(group.stops) { stop in
                         Text("\(stop.code) · \(stop.name)").tag(Optional(stop.id))
@@ -258,120 +287,7 @@ struct DeparturesView: View {
         .refreshable { await refresh() }
     }
 
-    private func refresh() async {
-        guard let group, (hasKey || AppPreview.isEnabled), !Task.isCancelled else { return }
-        let id = UUID()
-        requestID = id
-        loading = true
-        defer { if requestID == id { loading = false } }
-        do {
-            let result: [Departure]
-            if AppPreview.isEnabled { result = AppPreview.departures(for: group.stops) }
-            else {
-                guard let key = APIKeyStore.key else { return }
-                result = try await service.departures(for: group.stops, key: key)
-            }
-            guard !Task.isCancelled, requestID == id else { return }
-            departures = result
-            error = nil
-            lastUpdated = .now
-        } catch {
-            guard !Task.isCancelled, requestID == id else { return }
-            self.error = error.localizedDescription
-        }
-    }
+    private func refresh() async { await viewModel.refresh() }
+
 }
 
-struct DepartureRow: View {
-    let departure: Departure
-    @Environment(\.dynamicTypeSize) private var typeSize
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            let layout = typeSize.isAccessibilitySize ?
-                AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) :
-                AnyLayout(HStackLayout(alignment: .top, spacing: 12))
-            layout {
-                RouteBadge(route: departure.route)
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(departure.destination.isEmpty ? departure.stop.name : departure.destination)
-                        .font(.body.weight(.semibold)).foregroundStyle(.primary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("Stop \(departure.stop.code)")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                    Text(departure.stop.name)
-                        .font(.caption).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
-                if !typeSize.isAccessibilitySize { DepartureTime(departure: departure) }
-            }
-            if typeSize.isAccessibilitySize { DepartureTime(departure: departure) }
-        }
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Route \(departure.route), \(departure.destination), stop \(departure.stop.code), \(departure.stop.name)")
-        .accessibilityValue(departure.isLive ? "Live, \(departure.minutesAway) minutes" :
-                            "Scheduled \(departure.scheduledDate.formatted(date: .omitted, time: .shortened))")
-        .accessibilityHint("Shows bus location")
-    }
-}
-
-struct DepartureTime: View {
-    let departure: Departure
-
-    var body: some View {
-        VStack(alignment: .trailing, spacing: 5) {
-            if departure.isLive {
-                Text(departure.minutesAway == 0 ? "Due" : "\(departure.minutesAway) min")
-                    .font(.title3.weight(.semibold)).monospacedDigit()
-                    .foregroundStyle(.primary)
-                HStack(spacing: 4) {
-                    Image(systemName: "dot.radiowaves.left.and.right")
-                        .foregroundStyle(.green)
-                    Text("Live")
-                }
-                .font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                .fixedSize()
-            } else {
-                Text(departure.scheduledDate, style: .time)
-                    .font(.body.weight(.semibold)).monospacedDigit()
-                    .foregroundStyle(.primary)
-                Text("Scheduled").font(.caption).foregroundStyle(.secondary)
-            }
-        }
-        .fixedSize()
-    }
-}
-
-private struct GroupStopsView: View {
-    let group: StopGroup
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            StopMapView(stops: group.stops)
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
-                            ForEach(group.stops) { stop in
-                                HStack(spacing: 12) {
-                                    Image(systemName: "bus.fill").foregroundStyle(.blue)
-                                    StopLabel(stop: stop)
-                                    Spacer()
-                                }
-                            }
-                        }
-                        .padding(20)
-                    }
-                    .frame(maxHeight: 220)
-                    .background(.regularMaterial)
-                }
-                .navigationTitle(group.stops.count == 1 ? "\(group.name) Stop" : "\(group.name) Stops")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
-                }
-        }
-    }
-}

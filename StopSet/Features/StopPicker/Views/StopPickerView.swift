@@ -2,52 +2,85 @@ import SwiftUI
 import MapKit
 
 struct StopPickerView: View {
+    @State private var viewModel: StopPickerViewModel
     let group: StopGroup?
     let onSave: (StopGroup) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
-    @StateObject private var search = AddressSearchModel()
-    @State private var camera: MapCameraPosition
-    @State private var visibleCenter: CLLocationCoordinate2D
-    @State private var loadedCenter: CLLocationCoordinate2D?
-    @State private var stops: [BusStop] = []
-    @State private var selected: [BusStop]
-    @State private var focusedStop: BusStop?
-    @State private var routes: [String] = []
-    @State private var loadingRoutes = false
-    @State private var loading = false
-    @State private var message: String?
-    @State private var locationName = "Nearby Stops"
-    @State private var searchedLocation: CLLocationCoordinate2D?
-    @State private var sheetPresented = true
-    @State private var detent: PresentationDetent = .medium
-    @State private var showingDetails = false
-    @State private var searchPresented = false
-    @State private var loadTask: Task<Void, Never>?
-    @State private var routeTask: Task<Void, Never>?
-    @State private var searchTask: Task<Void, Never>?
-    private let service = TransitService()
+    private var search: AddressSearchViewModel { viewModel.search }
 
     init(group: StopGroup? = nil, onSave: @escaping (StopGroup) -> Void) {
         self.group = group
         self.onSave = onSave
-        let region = TransitStyle.region(for: group?.stops ?? [])
-        _selected = State(initialValue: group?.stops ?? [])
-        _camera = State(initialValue: .region(region))
-        _visibleCenter = State(initialValue: region.center)
+        _viewModel = State(initialValue: AppDependencies.shared.makeStopPickerViewModel(group: group))
     }
 
-    private var mapStops: [BusStop] {
-        stops + selected.filter { chosen in !stops.contains { $0.id == chosen.id } }
-    }
+    private var mapStops: [BusStop] { viewModel.mapStops }
 
     private var usesSidebar: Bool { sizeClass == .regular || verticalSizeClass == .compact }
 
-    private var areaChanged: Bool {
-        guard camera.positionedByUser, let loadedCenter else { return false }
-        return CLLocation(latitude: visibleCenter.latitude, longitude: visibleCenter.longitude)
-            .distance(from: CLLocation(latitude: loadedCenter.latitude, longitude: loadedCenter.longitude)) > 250
+    private var areaChanged: Bool { viewModel.areaChanged }
+
+    private var camera: MapCameraPosition {
+        get { viewModel.camera }
+        nonmutating set { viewModel.camera = newValue }
+    }
+    private var visibleCenter: CLLocationCoordinate2D {
+        get { viewModel.visibleCenter }
+        nonmutating set { viewModel.visibleCenter = newValue }
+    }
+    private var stops: [BusStop] {
+        get { viewModel.stops }
+        nonmutating set { viewModel.stops = newValue }
+    }
+    private var selected: [BusStop] {
+        get { viewModel.selected }
+        nonmutating set { viewModel.selected = newValue }
+    }
+    private var focusedStop: BusStop? {
+        get { viewModel.focusedStop }
+        nonmutating set { viewModel.focusedStop = newValue }
+    }
+    private var routes: [String] {
+        get { viewModel.routes }
+        nonmutating set { viewModel.routes = newValue }
+    }
+    private var loadingRoutes: Bool {
+        get { viewModel.loadingRoutes }
+        nonmutating set { viewModel.loadingRoutes = newValue }
+    }
+    private var loading: Bool {
+        get { viewModel.loading }
+        nonmutating set { viewModel.loading = newValue }
+    }
+    private var message: String? {
+        get { viewModel.message }
+        nonmutating set { viewModel.message = newValue }
+    }
+    private var locationName: String {
+        get { viewModel.locationName }
+        nonmutating set { viewModel.locationName = newValue }
+    }
+    private var searchedLocation: CLLocationCoordinate2D? {
+        get { viewModel.searchedLocation }
+        nonmutating set { viewModel.searchedLocation = newValue }
+    }
+    private var sheetPresented: Bool {
+        get { viewModel.sheetPresented }
+        nonmutating set { viewModel.sheetPresented = newValue }
+    }
+    private var detent: PresentationDetent {
+        get { viewModel.detent }
+        nonmutating set { viewModel.detent = newValue }
+    }
+    private var showingDetails: Bool {
+        get { viewModel.showingDetails }
+        nonmutating set { viewModel.showingDetails = newValue }
+    }
+    private var searchPresented: Bool {
+        get { viewModel.searchPresented }
+        nonmutating set { viewModel.searchPresented = newValue }
     }
 
     var body: some View {
@@ -60,9 +93,9 @@ struct StopPickerView: View {
                 }
             } else {
                 map
-                    .sheet(isPresented: $sheetPresented) {
+                    .sheet(isPresented: $viewModel.sheetPresented) {
                         pickerPanel
-                            .presentationDetents([.height(260), .medium, .large], selection: $detent)
+                            .presentationDetents([.height(260), .medium, .large], selection: $viewModel.detent)
                             .presentationDragIndicator(.visible)
                             .presentationBackgroundInteraction(.enabled(upThrough: .medium))
                             .interactiveDismissDisabled()
@@ -72,17 +105,14 @@ struct StopPickerView: View {
         .tint(.blue)
         .task { loadStops(at: visibleCenter) }
         .onDisappear {
-            loadTask?.cancel()
-            routeTask?.cancel()
-            searchTask?.cancel()
-            search.cancel()
+            viewModel.cancel()
         }
         .sensoryFeedback(.selection, trigger: selected.count)
     }
 
     private var map: some View {
         GeometryReader { geometry in
-            Map(position: $camera) {
+            Map(position: $viewModel.camera) {
                 if let searchedLocation {
                     Marker(locationName, systemImage: "mappin", coordinate: searchedLocation).tint(.orange)
                 }
@@ -189,7 +219,7 @@ struct StopPickerView: View {
             .listStyle(.insetGrouped)
             .navigationTitle(group == nil ? "Choose Stops" : "Edit Stops")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $search.query, isPresented: $searchPresented,
+            .searchable(text: $viewModel.search.query, isPresented: $viewModel.searchPresented,
                         placement: .navigationBarDrawer(displayMode: .always), prompt: "Search address or stop number")
             .onSubmit(of: .search) {
                 if search.stopNumber != nil { search.findStops(debounce: false) }
@@ -209,7 +239,7 @@ struct StopPickerView: View {
                     .accessibilityIdentifier("picker-next")
                 }
             }
-            .navigationDestination(isPresented: $showingDetails) {
+            .navigationDestination(isPresented: $viewModel.showingDetails) {
                 GroupDetailsView(group: group, stops: selected) { saved in
                     onSave(saved)
                     close()
@@ -285,8 +315,7 @@ struct StopPickerView: View {
 
     private func selectionButton(_ stop: BusStop) -> some View {
         Button {
-            if isSelected(stop) { selected.removeAll { $0.id == stop.id } }
-            else { selected.append(stop) }
+            viewModel.toggleSelection(stop)
         } label: {
             Image(systemName: isSelected(stop) ? "checkmark.circle.fill" : "plus.circle")
                 .font(.title2)
@@ -299,82 +328,11 @@ struct StopPickerView: View {
         .accessibilityIdentifier("select-\(stop.code)")
     }
 
-    private func isSelected(_ stop: BusStop) -> Bool {
-        selected.contains { $0.id == stop.id }
-    }
-
-    private func focus(_ stop: BusStop) {
-        focusedStop = stop
-        routes = []
-        searchPresented = false
-        detent = .medium
-        withAnimation {
-            camera = .region(MKCoordinateRegion(center: stop.coordinate,
-                span: MKCoordinateSpan(latitudeDelta: 0.002, longitudeDelta: 0.002)))
-        }
-        routeTask?.cancel()
-        loadingRoutes = true
-        routeTask = Task {
-            let nearby = AppPreview.isEnabled ? ["CTY", "NX2", "923"] :
-                ((try? await service.nearbyRoutes(at: stop.coordinate)) ?? [])
-            guard !Task.isCancelled, focusedStop?.id == stop.id else { return }
-            routes = nearby
-            loadingRoutes = false
-        }
-    }
-
-    private func findAddress(_ completion: AddressSearchResult? = nil) {
-        searchTask?.cancel()
-        searchTask = Task {
-            guard let item = await search.resolve(completion), !Task.isCancelled else { return }
-            searchPresented = false
-            search.query = ""
-            locationName = item.name ?? "Nearby Stops"
-            let coordinate = item.placemark.coordinate
-            searchedLocation = coordinate
-            withAnimation {
-                camera = .region(MKCoordinateRegion(center: coordinate,
-                    span: MKCoordinateSpan(latitudeDelta: 0.009, longitudeDelta: 0.009)))
-            }
-            detent = .medium
-            loadStops(at: coordinate)
-        }
-    }
-
-    private func showSearchStop(_ stop: BusStop) {
-        loadTask?.cancel()
-        loading = false
-        message = nil
-        stops = [stop]
-        loadedCenter = stop.coordinate
-        searchedLocation = nil
-        locationName = "Search Results"
-        search.query = ""
-        focus(stop)
-    }
-
-    private func loadStops(at coordinate: CLLocationCoordinate2D) {
-        loadTask?.cancel()
-        focusedStop = nil
-        stops = []
-        loading = true
-        message = nil
-        loadTask = Task {
-            do {
-                let result = AppPreview.isEnabled ? AppPreview.stops : try await service.nearbyStops(at: coordinate)
-                guard !Task.isCancelled else { return }
-                stops = result
-                loadedCenter = coordinate
-                if !result.isEmpty {
-                    withAnimation { camera = .region(TransitStyle.region(for: result)) }
-                }
-            } catch {
-                guard !Task.isCancelled else { return }
-                message = "Couldn't load nearby stops. Check your connection."
-            }
-            loading = false
-        }
-    }
+    private func isSelected(_ stop: BusStop) -> Bool { viewModel.isSelected(stop) }
+    private func focus(_ stop: BusStop) { viewModel.focus(stop) }
+    private func findAddress(_ completion: AddressSearchResult? = nil) { viewModel.findAddress(completion) }
+    private func showSearchStop(_ stop: BusStop) { viewModel.showSearchStop(stop) }
+    private func loadStops(at coordinate: CLLocationCoordinate2D) { viewModel.loadStops(at: coordinate) }
 
     private func close() {
         sheetPresented = false

@@ -1,18 +1,12 @@
 import MapKit
+import Combine
 import SwiftUI
 
-struct AddressSearchResult: Identifiable {
-    let id = UUID()
-    let title: String
-    let subtitle: String
-    var completion: MKLocalSearchCompletion?
-    var previewCoordinate: CLLocationCoordinate2D?
-}
-
 @MainActor
-final class AddressSearchModel: NSObject, ObservableObject, MKLocalSearchCompleterDelegate {
-    @Published var query = "" {
+final class AppleMapsAddressSearchRepository: NSObject, AddressSearchRepository, MKLocalSearchCompleterDelegate {
+    var query = "" {
         didSet {
+            defer { publishState() }
             requestID = UUID()
             search?.cancel()
             resolving = false
@@ -39,13 +33,13 @@ final class AddressSearchModel: NSObject, ObservableObject, MKLocalSearchComplet
             if stopNumber != nil { findStops() }
         }
     }
-    @Published private(set) var completions: [AddressSearchResult] = []
-    @Published private(set) var stopResults: [BusStop] = []
-    @Published private(set) var stopError: String?
-    @Published private(set) var findingStops = false
-    @Published private(set) var error: String?
-    @Published private(set) var resolving = false
-    @Published private(set) var completing = false
+    private(set) var completions: [AddressSearchResult] = [] { didSet { publishState() } }
+    private(set) var stopResults: [BusStop] = [] { didSet { publishState() } }
+    private(set) var stopError: String? { didSet { publishState() } }
+    private(set) var findingStops = false { didSet { publishState() } }
+    private(set) var error: String? { didSet { publishState() } }
+    private(set) var resolving = false { didSet { publishState() } }
+    private(set) var completing = false { didSet { publishState() } }
     private let completer = MKLocalSearchCompleter()
     private var search: MKLocalSearch?
     private var stopSearchTask: Task<Void, Never>?
@@ -57,7 +51,17 @@ final class AddressSearchModel: NSObject, ObservableObject, MKLocalSearchComplet
         return !value.isEmpty && value.allSatisfy({ $0 >= "0" && $0 <= "9" }) ? value : nil
     }
 
-    override init() {
+    private let transitRepository: any TransitRepository
+    private let stateSubject = CurrentValueSubject<AddressSearchState, Never>(AddressSearchState())
+    var statePublisher: AnyPublisher<AddressSearchState, Never> { stateSubject.eraseToAnyPublisher() }
+    var state: AddressSearchState {
+        AddressSearchState(completions: completions, stopResults: stopResults, stopError: stopError,
+                           findingStops: findingStops, error: error, resolving: resolving, completing: completing)
+    }
+    private func publishState() { stateSubject.send(state) }
+
+    init(transitRepository: any TransitRepository) {
+        self.transitRepository = transitRepository
         super.init()
         completer.delegate = self
         completer.resultTypes = [.address, .pointOfInterest]
@@ -96,9 +100,7 @@ final class AddressSearchModel: NSObject, ObservableObject, MKLocalSearchComplet
             defer { if stopRequestID == id { findingStops = false } }
             do {
                 if debounce { try await Task.sleep(for: .milliseconds(300)) }
-                let results = AppPreview.isEnabled ? AppPreview.searchableStops.filter { $0.code.hasPrefix(number) }
-                    .sorted { $0.code.localizedStandardCompare($1.code) == .orderedAscending } :
-                    try await TransitService().stops(numberPrefix: number)
+                let results = try await transitRepository.stops(numberPrefix: number)
                 guard stopRequestID == id, !Task.isCancelled else { return }
                 stopResults = results
             } catch {

@@ -2,11 +2,25 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var key = APIKeyStore.key ?? ""
-    @State private var hasKey = APIKeyStore.key != nil
-    @State private var status: String?
-    @State private var confirmingRemoval = false
-    @AppStorage(RefreshSettings.departureIntervalKey) private var departureRefreshInterval = RefreshSettings.defaultDepartureInterval
+    @State private var viewModel = AppDependencies.shared.makeSettingsViewModel()
+    private var departureRefreshInterval: Int { viewModel.departureRefreshInterval }
+
+    private var key: String {
+        get { viewModel.key }
+        nonmutating set { viewModel.key = newValue }
+    }
+    private var hasKey: Bool {
+        get { viewModel.hasKey }
+        nonmutating set { viewModel.hasKey = newValue }
+    }
+    private var status: String? {
+        get { viewModel.status }
+        nonmutating set { viewModel.status = newValue }
+    }
+    private var confirmingRemoval: Bool {
+        get { viewModel.confirmingRemoval }
+        nonmutating set { viewModel.confirmingRemoval = newValue }
+    }
 
     var body: some View {
         NavigationStack {
@@ -26,18 +40,12 @@ struct SettingsView: View {
                     .padding(.vertical, 4)
                 }
                 Section {
-                    SecureField("Subscription key", text: $key)
+                    SecureField("Subscription key", text: $viewModel.key)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .onChange(of: key) { status = nil }
                     Button("Save Key") {
-                        let value = key.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if APIKeyStore.save(value) {
-                            hasKey = true
-                            status = "Key saved securely."
-                        } else {
-                            status = "Could not save the key. Please try again."
-                        }
+                        viewModel.saveKey()
                     }
                     .disabled(key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     if let status { Text(status).font(.footnote).foregroundStyle(.secondary) }
@@ -47,7 +55,7 @@ struct SettingsView: View {
                     Text("Your AT subscription needs Realtime and GTFS access. The key is stored in this device's Keychain.")
                 }
                 Section {
-                    Picker("Departures", selection: $departureRefreshInterval) {
+                    Picker("Departures", selection: $viewModel.departureRefreshInterval) {
                         ForEach(RefreshSettings.departureIntervals, id: \.self) { interval in
                             Text("Every \(interval) seconds").tag(interval)
                         }
@@ -78,14 +86,9 @@ struct SettingsView: View {
                     Button("Done") { dismiss() }.fontWeight(.semibold)
                 }
             }
-            .confirmationDialog("Remove the saved key?", isPresented: $confirmingRemoval, titleVisibility: .visible) {
+            .confirmationDialog("Remove the saved key?", isPresented: $viewModel.confirmingRemoval, titleVisibility: .visible) {
                 Button("Remove Key", role: .destructive) {
-                    if APIKeyStore.save("") {
-                        key = ""
-                        hasKey = false
-                    } else {
-                        status = "Could not remove the key. Please try again."
-                    }
+                    viewModel.removeKey()
                 }
             }
         }

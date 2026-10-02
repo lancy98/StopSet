@@ -1,15 +1,25 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var store = StopGroupStore()
-    @State private var showingEditor = false
-    @State private var editingGroup: StopGroup?
-    @State private var showingSettings = false
+    @State private var viewModel = AppDependencies.shared.makeContentViewModel()
+
+    private var showingEditor: Bool {
+        get { viewModel.showingEditor }
+        nonmutating set { viewModel.showingEditor = newValue }
+    }
+    private var editingGroup: StopGroup? {
+        get { viewModel.editingGroup }
+        nonmutating set { viewModel.editingGroup = newValue }
+    }
+    private var showingSettings: Bool {
+        get { viewModel.showingSettings }
+        nonmutating set { viewModel.showingSettings = newValue }
+    }
 
     var body: some View {
         NavigationStack {
             Group {
-                if store.groups.isEmpty {
+                if viewModel.groups.isEmpty {
                     ContentUnavailableView {
                         Label("No Stop Groups", systemImage: "mappin.and.ellipse")
                     } actions: {
@@ -19,7 +29,7 @@ struct ContentView: View {
                 } else {
                     List {
                         Section {
-                            ForEach(store.groups) { group in
+                            ForEach(viewModel.groups) { group in
                                 NavigationLink {
                                     DeparturesView(groupID: group.id)
                                 } label: {
@@ -40,15 +50,15 @@ struct ContentView: View {
                                 .contextMenu {
                                     Button("Edit Group", systemImage: "pencil") { edit(group) }
                                     Button("Delete Group", systemImage: "trash", role: .destructive) {
-                                        store.delete(group)
+                                        viewModel.delete(group)
                                     }
                                 }
                                 .swipeActions(edge: .leading, allowsFullSwipe: false) {
                                     Button("Edit", systemImage: "pencil") { edit(group) }.tint(.blue)
                                 }
                             }
-                            .onDelete(perform: store.delete)
-                            .onMove(perform: store.move)
+                            .onDelete(perform: viewModel.delete)
+                            .onMove(perform: viewModel.move)
                         } header: {
                             Text("Saved Groups")
                         }
@@ -59,7 +69,7 @@ struct ContentView: View {
             .navigationTitle("My Stops")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    if !store.groups.isEmpty { EditButton() }
+                    if !viewModel.groups.isEmpty { EditButton() }
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button("Settings", systemImage: "gearshape") { showingSettings = true }
@@ -67,22 +77,14 @@ struct ContentView: View {
                         .accessibilityIdentifier("new-group")
                 }
             }
-            .fullScreenCover(isPresented: $showingEditor) {
-                StopPickerView(group: editingGroup, onSave: store.save)
+            .fullScreenCover(isPresented: $viewModel.showingEditor) {
+                StopPickerView(group: editingGroup, onSave: { _ in })
             }
-            .sheet(isPresented: $showingSettings) { SettingsView() }
+            .sheet(isPresented: $viewModel.showingSettings) { SettingsView() }
         }
-        .environmentObject(store)
         .tint(.blue)
     }
 
-    private func newGroup() {
-        editingGroup = nil
-        showingEditor = true
-    }
-
-    private func edit(_ group: StopGroup) {
-        editingGroup = group
-        showingEditor = true
-    }
+    private func newGroup() { viewModel.newGroup() }
+    private func edit(_ group: StopGroup) { viewModel.edit(group) }
 }

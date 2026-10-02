@@ -4,17 +4,26 @@ struct GroupDetailsView: View {
     let group: StopGroup?
     let stops: [BusStop]
     let onSave: (StopGroup) -> Void
-    @State private var name: String
-    @State private var symbol: String
-    @State private var color: String
+    @State private var viewModel: GroupDetailsViewModel
 
     init(group: StopGroup?, stops: [BusStop], onSave: @escaping (StopGroup) -> Void) {
         self.group = group
         self.stops = stops
         self.onSave = onSave
-        _name = State(initialValue: group?.name ?? "")
-        _symbol = State(initialValue: group?.displaySymbol ?? "mappin.and.ellipse")
-        _color = State(initialValue: group?.displayColor ?? "blue")
+        _viewModel = State(initialValue: AppDependencies.shared.makeGroupDetailsViewModel(group: group, stops: stops))
+    }
+
+    private var name: String {
+        get { viewModel.name }
+        nonmutating set { viewModel.name = newValue }
+    }
+    private var symbol: String {
+        get { viewModel.symbol }
+        nonmutating set { viewModel.symbol = newValue }
+    }
+    private var color: String {
+        get { viewModel.color }
+        nonmutating set { viewModel.color = newValue }
     }
 
     var body: some View {
@@ -28,7 +37,7 @@ struct GroupDetailsView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 .padding(.vertical, 12)
-                TextField("Group name", text: $name)
+                TextField("Group name", text: $viewModel.name)
                     .textInputAutocapitalization(.words)
                     .submitLabel(.done)
                     .accessibilityIdentifier("group-name")
@@ -73,15 +82,10 @@ struct GroupDetailsView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") {
-                    var saved = group ?? StopGroup(name: "", stops: [])
-                    saved.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                    saved.stops = stops
-                    saved.symbol = symbol
-                    saved.colorName = color
-                    onSave(saved)
+                    if let saved = viewModel.save() { onSave(saved) }
                 }
                 .fontWeight(.semibold)
-                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || stops.isEmpty)
+                .disabled(viewModel.isSaveDisabled)
                 .accessibilityIdentifier("save-group")
             }
         }

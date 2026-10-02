@@ -2,18 +2,35 @@ import SwiftUI
 import MapKit
 
 struct VehicleMapView: View {
+    @State private var viewModel: VehicleMapViewModel
     let departure: Departure
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
-    @State private var location: VehicleLocation?
-    @State private var loading = false
-    @State private var message: String?
-    @State private var camera: MapCameraPosition = .automatic
-    private let service = TransitService()
+    init(departure: Departure) {
+        self.departure = departure
+        _viewModel = State(initialValue: AppDependencies.shared.makeVehicleMapViewModel(departure: departure))
+    }
+
+    private var location: VehicleLocation? {
+        get { viewModel.location }
+        nonmutating set { viewModel.location = newValue }
+    }
+    private var loading: Bool {
+        get { viewModel.loading }
+        nonmutating set { viewModel.loading = newValue }
+    }
+    private var message: String? {
+        get { viewModel.message }
+        nonmutating set { viewModel.message = newValue }
+    }
+    private var camera: MapCameraPosition {
+        get { viewModel.camera }
+        nonmutating set { viewModel.camera = newValue }
+    }
 
     var body: some View {
         NavigationStack {
-            Map(position: $camera) {
+            Map(position: $viewModel.camera) {
                 Marker("Stop \(departure.stop.code)", systemImage: "mappin",
                        coordinate: departure.stop.coordinate).tint(.red)
                 if let location {
@@ -94,43 +111,6 @@ struct VehicleMapView: View {
         }
     }
 
-    private func refresh() async {
-        guard !loading, !Task.isCancelled else { return }
-        loading = true
-        defer { loading = false }
-        do {
-            let result: VehicleLocation?
-            if AppPreview.isEnabled {
-                result = VehicleLocation(coordinate: CLLocationCoordinate2D(
-                    latitude: -36.84734,
-                    longitude: 174.74995), timestamp: .now)
-            } else {
-                guard let key = APIKeyStore.key else {
-                    message = "Add an AT API key in Settings to see bus locations."
-                    return
-                }
-                result = try await service.vehicleLocation(tripID: departure.tripID,
-                                                           vehicleID: departure.vehicleID, key: key)
-            }
-            guard !Task.isCancelled else { return }
-            let firstLocation = location == nil
-            location = result
-            message = result == nil ? "No location has been reported for this bus yet." : nil
-            if firstLocation { recenter() }
-        } catch {
-            guard !Task.isCancelled else { return }
-            message = error.localizedDescription
-        }
-    }
-
-    private func recenter() {
-        let points = ([departure.stop.coordinate] + [location?.coordinate].compactMap { $0 }).map(MKMapPoint.init)
-        let minX = points.map(\.x).min()!
-        let maxX = points.map(\.x).max()!
-        let minY = points.map(\.y).min()!
-        let maxY = points.map(\.y).max()!
-        let padding = max(max(maxX - minX, maxY - minY) * 0.5, 1_500)
-        camera = .rect(MKMapRect(x: minX - padding, y: minY - padding,
-                                width: maxX - minX + padding * 2, height: maxY - minY + padding * 2))
-    }
+    private func refresh() async { await viewModel.refresh() }
+    private func recenter() { viewModel.recenter() }
 }
